@@ -1,22 +1,22 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: webapp-network-tester-demo
-  namespace: demos
+  name: webapp-network-tester-external
+  namespace: demos-external
 spec:
-  replicas: 3
+  replicas: 2
   selector:
     matchLabels:
-      app: webapp-network-tester-demo
+      app: webapp-network-tester-external
   template:
     metadata:
       labels:
-        app: webapp-network-tester-demo
+        app: webapp-network-tester-external
     spec:
       containers:
-      - image: jannemattila/webapp-network-tester:1.0.41
+      - image: jannemattila/webapp-network-tester:latest
         imagePullPolicy: Always
-        name: webapp-network-tester-demo
+        name: webapp-network-tester-external
         resources:
           requests:
             cpu: 100m
