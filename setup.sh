@@ -138,6 +138,9 @@ kubectl apply -f demos-external/service.yaml
 kubectl get deployment -n demos-external
 kubectl describe deployment -n demos-external
 
+# Check pod IP Addresses: 10.3.0.* from "pod-subnet":
+kubectl get pod -n demos-external -o wide
+
 pod1=$(kubectl get pod -n demos-external -o name | head -n 1)
 echo $pod1
 
@@ -171,12 +174,25 @@ echo $ingressip2
 curl $ingressip2
 # -> curl: (7) Failed to connect to 10.4.0.4 port 80: No route to host
 
+# Access to "demos-internal" via "demo-external" app:
 curl -X POST --data  "HTTP GET \"http://$ingressip2\"" -H "Content-Type: text/plain" "$ingressip/api/commands"
-# -> OK - Access to demos-internal via demo-external app:
-# ---
 # -> Start: HTTP GET "http://10.4.0.4"
 # <html><body>Hello there!</body></html>
 # <- End: HTTP GET "http://10.4.0.4" 418.42ms
+
+# External endpoint via "demo-external" app:
+curl -X POST --data  "HTTP GET \"https://echo.jannemattila.com/pages/echo\"" -H "Content-Type: text/plain" "$ingressip/api/commands"
+# <clip>
+# CLIENT-IP: 20.82.17.35:1024
+# </clip>
+
+# Get AKS network profile and effective outbound IPs --> Fetch IP Address
+aksjson=$(az aks show -n $aksName -g $resourceGroupName -o json)
+outboundipid=$(echo $aksjson | jq -r .networkProfile.loadBalancerProfile.effectiveOutboundIPs[0].id)
+echo $outboundipid
+publicipjson=$(az rest --method get --url "$outboundipid?api-version=2021-05-01" -o json)
+ip=$(echo $publicipjson | jq -r .properties.ipAddress)
+echo $ip
 
 # Wipe out the resources
 az group delete --name $resourceGroupName -y
