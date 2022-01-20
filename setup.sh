@@ -136,6 +136,22 @@ az aks get-credentials -n $aksName -g $resourceGroupName --overwrite-existing
 
 kubectl get nodes -o wide
 
+# Create network security group
+# - Assign it to 'secure-subnet' subnet
+# - Deny traffic coming from 'internal-subnet' subnet
+nsg="nsg-secure-subnet"
+nsgrule1="rule1"
+az network nsg create -n $nsg -g $resourceGroupName
+az network nsg rule create --nsg-name $nsg -g $resourceGroupName \
+  -n $nsgrule1 --priority 1000 \
+  --source-address-prefixes 10.4.0.0/24 \
+  --destination-address-prefixes '*' \
+  --destination-port-ranges '*' \
+  --access Deny \
+  --description "Deny access from 'internal-subnet'"
+az network vnet subnet update -g $resourceGroupName --vnet-name $vnetName \
+  --name $subnetSecure --network-security-group $nsg
+
 ############################################
 #  _   _      _                      _
 # | \ | | ___| |___      _____  _ __| | __
