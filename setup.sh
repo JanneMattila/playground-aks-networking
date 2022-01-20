@@ -11,6 +11,7 @@ vnetName="mynetworking-vnet"
 subnetAks="aks-subnet"
 subnetPods="pod-subnet"
 subnetInternal="internal-subnet"
+subnetSecure="secure-subnet"
 identityName="myaksnetworking"
 resourceGroupName="rg-myaksnetworking"
 location="westeurope"
@@ -18,10 +19,6 @@ location="westeurope"
 # Login and set correct context
 az login -o table
 az account set --subscription $subscriptionName -o table
-
-subscriptionID=$(az account show -o tsv --query id)
-resourcegroupid=$(az group create -l $location -n $resourceGroupName -o table --query id -o tsv)
-echo $resourcegroupid
 
 # Prepare extensions and providers
 az extension add --upgrade --yes --name aks-preview
@@ -37,6 +34,9 @@ az provider register --namespace Microsoft.ContainerService
 
 # Remove extension in case conflicting previews
 # az extension remove --name aks-preview
+subscriptionID=$(az account show -o tsv --query id)
+resourcegroupid=$(az group create -l $location -n $resourceGroupName -o table --query id -o tsv)
+echo $resourcegroupid
 
 acrid=$(az acr create -l $location -g $resourceGroupName -n $acrName --sku Basic --query id -o tsv)
 echo $acrid
@@ -67,6 +67,11 @@ subnetinternalid=$(az network vnet subnet create -g $resourceGroupName --vnet-na
   --query id -o tsv)
 echo $subnetinternalid
 
+subnetsecureid=$(az network vnet subnet create -g $resourceGroupName --vnet-name $vnetName \
+  --name $subnetSecure --address-prefixes 10.5.0.0/24 \
+  --query id -o tsv)
+echo $subnetsecureid
+
 identityjson=$(az identity create --name $identityName --resource-group $resourceGroupName -o json)
 identityid=$(echo $identityjson | jq -r .id)
 identityobjectid=$(echo $identityjson | jq -r .principalId)
@@ -90,7 +95,7 @@ az aks create -g $resourceGroupName -n $aksName \
  --max-pods 50 --network-plugin azure \
  --node-count 1 --enable-cluster-autoscaler --min-count 1 --max-count 2 \
  --node-osdisk-type "Ephemeral" \
- --node-vm-size "Standard_D8ds_v4" \
+ --node-vm-size "Standard_D8ds_v5" \
  --kubernetes-version 1.22.4 \
  --enable-addons monitoring \
  --enable-aad \
@@ -106,12 +111,6 @@ az aks create -g $resourceGroupName -n $aksName \
  --api-server-authorized-ip-ranges $myip \
  -o table
 
-sudo az aks install-cli
-
-az aks get-credentials -n $aksName -g $resourceGroupName --overwrite-existing
-
-kubectl get nodes
-
 # Note: In our setup we want to create load balancer
 # to separate subnet "internal-subnet" and that requires
 # additional access rights to AKS identity:
@@ -120,6 +119,22 @@ az role assignment create \
   --assignee-object-id $identityobjectid \
   --assignee-principal-type ServicePrincipal \
   --scope $vnetid
+
+# Create secondary node pool and use "secure-subnet" for them
+nodepool2="nodepool2"
+az aks nodepool add -g $resourceGroupName --cluster-name $aksName \
+  --name $nodepool2 \
+  --node-count 1 --enable-cluster-autoscaler --min-count 1 --max-count 2 \
+  --node-osdisk-type "Ephemeral" \
+  --node-vm-size "Standard_D8ds_v5" \
+  --pod-subnet-id $subnetsecureid \
+  --max-pods 150
+
+sudo az aks install-cli
+
+az aks get-credentials -n $aksName -g $resourceGroupName --overwrite-existing
+
+kubectl get nodes -o wide
 
 ############################################
 #  _   _      _                      _
