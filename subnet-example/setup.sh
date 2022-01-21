@@ -261,7 +261,11 @@ INFO HOSTNAME" -H "Content-Type: text/plain" "$external_svc_ip/api/commands"
 echo "From $external_pod_ip ($external_svc_ip) to $internal_pod_ip - Timeout"
 curl -X POST --data  "HTTP POST \"http://$internal_pod_ip/api/commands\"
 INFO HOSTNAME" -H "Content-Type: text/plain" "$external_svc_ip/api/commands"
-# -> Deny in network security group -> Timeout
+# -> Deny in network security group -> Timeout:
+#
+# -> Start: HTTP POST "http://10.5.0.17/api/commands"
+# System.Threading.Tasks.TaskCanceledException: The request was canceled due to the configured HttpClient.Timeout of 100 seconds elapsing.
+# <- End: HTTP POST "http://10.5.0.17/api/commands" 100003.10ms
 
 # Access to "demos-internal" shared service in via "demos-external" app:
 # - "demos-external" pod is in "pod-subnet"
