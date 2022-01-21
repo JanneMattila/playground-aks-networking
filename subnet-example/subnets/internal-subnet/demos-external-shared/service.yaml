@@ -1,8 +1,8 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: webapp-network-tester-internal
-  namespace: demos-internal
+  name: webapp-network-tester-external-shared
+  namespace: demos-external-shared
   annotations:
     service.beta.kubernetes.io/azure-load-balancer-internal: "true"
     service.beta.kubernetes.io/azure-load-balancer-internal-subnet: "internal-subnet"

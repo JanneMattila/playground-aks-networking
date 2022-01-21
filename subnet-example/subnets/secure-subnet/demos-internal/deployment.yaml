@@ -13,6 +13,11 @@ spec:
       labels:
         app: webapp-network-tester-internal
     spec:
+      tolerations:
+      - key: "usage"
+        operator: "Equal"
+        value: "limitedaccess"
+        effect: "NoSchedule"
       containers:
       - image: jannemattila/webapp-network-tester:latest
         imagePullPolicy: Always
