@@ -74,6 +74,22 @@ subnetsecureid=$(az network vnet subnet create -g $resourceGroupName --vnet-name
   --query id -o tsv)
 echo $subnetsecureid
 
+# Create network security group
+# - Assign it to 'secure-subnet' subnet
+# - Deny traffic coming from 'pod-subnet' subnet
+nsg="nsg-secure-subnet"
+nsgrule1="rule1"
+az network nsg create -n $nsg -g $resourceGroupName
+az network nsg rule create --nsg-name $nsg -g $resourceGroupName \
+  -n $nsgrule1 --priority 1000 \
+  --source-address-prefixes 10.3.0.0/24 \
+  --destination-address-prefixes '*' \
+  --destination-port-ranges '*' \
+  --access Deny \
+  --description "Deny access from 'pod-subnet'"
+az network vnet subnet update -g $resourceGroupName --vnet-name $vnetName \
+  --name $subnetSecure --network-security-group $nsg
+
 identityjson=$(az identity create --name $identityName --resource-group $resourceGroupName -o json)
 identityid=$(echo $identityjson | jq -r .id)
 identityobjectid=$(echo $identityjson | jq -r .principalId)
@@ -122,7 +138,7 @@ az role assignment create \
   --assignee-principal-type ServicePrincipal \
   --scope $vnetid
 
-# Create secondary node pool and use "secure-subnet" for them
+# Create secondary node pool and use "secure-subnet" for pods in it
 nodepool2="nodepool2"
 az aks nodepool add -g $resourceGroupName --cluster-name $aksName \
   --name $nodepool2 \
@@ -130,30 +146,20 @@ az aks nodepool add -g $resourceGroupName --cluster-name $aksName \
   --node-osdisk-type "Ephemeral" \
   --node-vm-size "Standard_D8ds_v4" \
   --node-taints "usage=limitedaccess:NoSchedule" \
+  --labels usage=limitedaccess \
   --pod-subnet-id $subnetsecureid \
   --max-pods 150
+
+# az aks nodepool delete -g $resourceGroupName --cluster-name $aksName --name $nodepool2
 
 sudo az aks install-cli
 
 az aks get-credentials -n $aksName -g $resourceGroupName --overwrite-existing
 
 kubectl get nodes -o wide
-
-# Create network security group
-# - Assign it to 'secure-subnet' subnet
-# - Deny traffic coming from 'pod-subnet' subnet
-nsg="nsg-secure-subnet"
-nsgrule1="rule1"
-az network nsg create -n $nsg -g $resourceGroupName
-az network nsg rule create --nsg-name $nsg -g $resourceGroupName \
-  -n $nsgrule1 --priority 1000 \
-  --source-address-prefixes 10.3.0.0/24 \
-  --destination-address-prefixes '*' \
-  --destination-port-ranges '*' \
-  --access Deny \
-  --description "Deny access from 'pod-subnet'"
-az network vnet subnet update -g $resourceGroupName --vnet-name $vnetName \
-  --name $subnetSecure --network-security-group $nsg
+kubectl get nodes -o custom-columns=NAME:.metadata.name,TAINTS:.spec.taints
+kubectl get nodes --show-labels=true
+kubectl get nodes -L agentpool,usage
 
 ############################################
 #  _   _      _                      _
@@ -165,11 +171,10 @@ az network vnet subnet update -g $resourceGroupName --vnet-name $vnetName \
 ############################################
 
 # Deploy all items from demos-external namespace
-kubectl apply -f subnets/pod-subnet/demos-external/namespace.yaml
-kubectl apply -f subnets/pod-subnet/demos-external/deployment.yaml
-kubectl apply -f subnets/pod-subnet/demos-external/service.yaml
-kubectl apply -f subnets/internal-subnet/demos-external-shared/namespace.yaml
-kubectl apply -f subnets/internal-subnet/demos-external-shared/service.yaml
+kubectl apply -f demos-external/namespace.yaml
+kubectl apply -f demos-external/deployment.yaml
+kubectl apply -f demos-external/service.yaml
+kubectl apply -f demos-external/service-shared.yaml
 
 kubectl get deployment -n demos-external
 kubectl describe deployment -n demos-external
@@ -177,58 +182,98 @@ kubectl describe deployment -n demos-external
 # Check pod IP Addresses and verity that they are from 10.3.0.* = "pod-subnet":
 kubectl get pod -n demos-external -o wide
 
-pod1=$(kubectl get pod -n demos-external -o name | head -n 1)
-echo $pod1
+external_pod=$(kubectl get pod -n demos-external -o name | head -n 1)
+echo $external_pod
 
-kubectl describe $pod1 -n demos-external
+external_pod_ip=$(kubectl get pod -n demos-external -o jsonpath="{.items[0].status.podIP}")
+echo $external_pod_ip
 
-kubectl get service -n demos-external # -> external IP is public IP
-kubectl get service -n demos-external-shared # -> external IP is private IP in "internal-subnet"
-kubectl describe service -n demos-external-shared
+kubectl describe $external_pod -n demos-external
+
+kubectl get service -n demos-external
+# webapp-network-tester-external -> external IP is public IP
+# webapp-network-tester-external-shared -> external IP is private IP in "internal-subnet"
 
 external_svc_ip=$(kubectl get service -n demos-external -o jsonpath="{.items[0].status.loadBalancer.ingress[0].ip}")
 echo $external_svc_ip
 
-external_shared_svc_ip=$(kubectl get service -n demos-external-shared -o jsonpath="{.items[0].status.loadBalancer.ingress[0].ip}")
+external_shared_svc_ip=$(kubectl get service -n demos-external -o jsonpath="{.items[1].status.loadBalancer.ingress[0].ip}")
 echo $external_shared_svc_ip
 
 curl $external_svc_ip
 # -> <html><body>Hello there!</body></html>
 
 # Deploy all items from demos-internal namespace
-kubectl apply -f subnets/secure-subnet/demos-internal/namespace.yaml
-kubectl apply -f subnets/secure-subnet/demos-internal/deployment.yaml
-kubectl apply -f subnets/secure-subnet/demos-internal/service.yaml
-kubectl apply -f subnets/internal-subnet/demos-internal-shared/namespace.yaml
-kubectl apply -f subnets/internal-subnet/demos-internal-shared/service.yaml
+kubectl apply -f demos-internal/namespace.yaml
+kubectl apply -f demos-internal/deployment.yaml
+kubectl apply -f demos-internal/service.yaml
+kubectl apply -f demos-internal/service-shared.yaml
 
 kubectl get deployment -n demos-internal
 kubectl describe deployment -n demos-internal
 
-pod2=$(kubectl get pod -n demos-internal -o name | head -n 1)
-echo $pod2
+# Check pod IP Addresses and verity that they are from 10.5.0.* = "secure-subnet":
+kubectl get pod -n demos-internal -o wide
 
-kubectl describe $pod2 -n demos-internal
+internal_pod=$(kubectl get pod -n demos-internal -o name | head -n 1)
+echo $internal_pod
 
-kubectl get service -n demos-internal # -> external IP is private IP in "pod-subnet"
-kubectl get service -n demos-internal-shared # -> external IP is private IP in "internal-subnet"
+internal_pod_ip=$(kubectl get pod -n demos-internal -o jsonpath="{.items[0].status.podIP}")
+echo $internal_pod_ip
+
+kubectl describe $internal_pod -n demos-internal
+
+kubectl get service -n demos-internal
+# webapp-network-tester-internal -> external IP is private IP in "pod-subnet"
+# webapp-network-tester-internal-shared -> external IP is private IP in "internal-subnet"
 kubectl describe service -n demos-internal
-kubectl describe service -n demos-internal-shared
 
 internal_svc_ip=$(kubectl get service -n demos-internal -o jsonpath="{.items[0].status.loadBalancer.ingress[0].ip}")
 echo $internal_svc_ip
 
-internal_shared_svc_ip=$(kubectl get service -n demos-internal-shared -o jsonpath="{.items[0].status.loadBalancer.ingress[0].ip}")
+internal_shared_svc_ip=$(kubectl get service -n demos-internal -o jsonpath="{.items[1].status.loadBalancer.ingress[0].ip}")
 echo $internal_shared_svc_ip
 
 curl $internal_shared_svc_ip
 # -> curl: (7) Failed to connect to 10.4.0.5 port 80: No route to host
 
-# Access to "demos-internal" via "demo-external" app:
-curl -X POST --data  "HTTP GET \"http://$internal_svc_ip\"" -H "Content-Type: text/plain" "$external_svc_ip/api/commands"
-# -> Start: HTTP GET "http://10.2.0.6"
-# <html><body>Hello there!</body></html>
-# <- End: HTTP GET "http://10.2.0.6" 418.42ms
+# Verify setup
+kubectl get pod -n demos-external -o custom-columns=NAME:'{.metadata.name}',NODE:'{.spec.nodeName}'
+# -> All pods should be in "nodepool1"
+kubectl get pod -n demos-internal -o custom-columns=NAME:'{.metadata.name}',NODE:'{.spec.nodeName}'
+# -> All pods should be in "nodepool2"
+
+# Access to "demos-internal" service via "demos-external" app:
+# - "demos-external" pod is in "pod-subnet"
+# - Service IP is in "pod-subnet"
+echo "From $external_pod_ip ($external_svc_ip) to $internal_svc_ip - OK"
+curl -X POST --data  "HTTP POST \"http://$internal_svc_ip/api/commands\"
+INFO HOSTNAME" -H "Content-Type: text/plain" "$external_svc_ip/api/commands"
+# -> Start: HTTP POST "http://10.2.0.6/api/commands"
+# -> Start: INFO HOSTNAME
+# HOSTNAME: webapp-network-tester-internal-99b6cbdfb-bc64j
+# <- End: INFO HOSTNAME 1.36ms
+# <- End: HTTP POST "http://10.2.0.6/api/commands" 5.44ms
+
+# Access to "demos-internal" pod via "demos-external" app:
+# - "demos-external" pod is in "pod-subnet"
+# - Pod IP is in "secure-subnet"
+echo "From $external_pod_ip ($external_svc_ip) to $internal_pod_ip - Timeout"
+curl -X POST --data  "HTTP POST \"http://$internal_pod_ip/api/commands\"
+INFO HOSTNAME" -H "Content-Type: text/plain" "$external_svc_ip/api/commands"
+# -> Deny in network security group -> Timeout
+
+# Access to "demos-internal" shared service in via "demos-external" app:
+# - "demos-external" pod is in "pod-subnet"
+# - Service IP is in "internal-subnet"
+echo "From $external_pod_ip ($external_svc_ip) to $internal_shared_svc_ip - Timeout"
+curl -X POST --data  "HTTP POST \"http://$internal_shared_svc_ip/api/commands\"
+INFO HOSTNAME" -H "Content-Type: text/plain" "$external_svc_ip/api/commands"
+# -> Start: HTTP POST "http://10.4.0.6/api/commands"
+# -> Start: INFO HOSTNAME
+# HOSTNAME: webapp-network-tester-internal-99b6cbdfb-bc64j
+# <- End: INFO HOSTNAME 0.05ms
+# <- End: HTTP POST "http://10.4.0.6/api/commands" 3.30ms
 
 # External endpoint via "demo-external" app:
 curl -X POST --data  "HTTP GET \"https://echo.jannemattila.com/pages/echo\"" -H "Content-Type: text/plain" "$external_svc_ip/api/commands"
@@ -244,8 +289,6 @@ publicipjson=$(az rest --method get --url "$outboundipid?api-version=2021-05-01"
 ip=$(echo $publicipjson | jq -r .properties.ipAddress)
 echo $ip
 # 20.103.29.104
-
-
 
 # Wipe out the resources
 az group delete --name $resourceGroupName -y

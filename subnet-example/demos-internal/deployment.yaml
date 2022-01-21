@@ -13,6 +13,8 @@ spec:
       labels:
         app: webapp-network-tester-internal
     spec:
+      nodeSelector:
+        usage: limitedaccess
       tolerations:
       - key: "usage"
         operator: "Equal"
