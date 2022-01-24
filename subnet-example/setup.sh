@@ -54,6 +54,11 @@ vnetid=$(az network vnet create -g $resourceGroupName --name $vnetName \
   --query newVNet.id -o tsv)
 echo $vnetid
 
+subnetdefaultid=$(az network vnet subnet create -g $resourceGroupName --vnet-name $vnetName \
+  --name default-subnet --address-prefixes 10.1.0.0/20 \
+  --query id -o tsv)
+echo $subnetdefaultid
+
 subnetaksid=$(az network vnet subnet create -g $resourceGroupName --vnet-name $vnetName \
   --name $subnetAks --address-prefixes 10.2.0.0/20 \
   --query id -o tsv)
