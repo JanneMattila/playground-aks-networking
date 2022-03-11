@@ -12,6 +12,7 @@ workspaceName="mynetperfworkspace"
 vnetName="mynetperf-vnet"
 subnetAks="aks-subnet"
 identityName="myaksnetperf"
+ppgName="myaksnetperfppg"
 resourceGroupName="rg-myaksnetperf"
 location="westeurope"
 
@@ -63,6 +64,9 @@ echo $subnetaksid
 identityid=$(az identity create --name $identityName --resource-group $resourceGroupName --query id -o tsv)
 echo $identityid
 
+proximityplacementgroupid=$(az ppg create -n $ppgName -g $resourceGroupName -l $location -t standard --query id -o tsv)
+echo $proximityplacementgroupid
+
 az aks get-versions -l $location -o table
 
 # Note: for public cluster you need to authorize your ip to use api
@@ -80,6 +84,9 @@ echo $myip
 # https://docs.microsoft.com/en-us/azure/virtual-machines/ddv4-ddsv4-series#ddsv4-series
 # Standard_D8ds_v4
 # => Expected network bandwidth (Mbps): 4000
+
+# Use Proximity Placement Group (PPG):
+# --ppg $proximityplacementgroupid \
 
 az aks create -g $resourceGroupName -n $aksName \
  --zones 1 \
@@ -113,7 +120,6 @@ az aks nodepool add -g $resourceGroupName --cluster-name $aksName \
   --max-pods 150
 
 # az aks nodepool delete -g $resourceGroupName --cluster-name $aksName --name $nodepool2
-
 sudo az aks install-cli
 
 az aks get-credentials -n $aksName -g $resourceGroupName --overwrite-existing
@@ -186,18 +192,28 @@ kubectl exec --stdin --tty $pod3 -n demos -- /bin/sh
 
 hostname
 
-# If not installed, then install
-apk add --no-cache iperf3
-apk add --no-cache --repository http://dl-3.alpinelinux.org/alpine/edge/testing/ qperf==0.4.11-r0
+# If not installed, then install - Alpine
+# apk add --no-cache iperf3
+# apk add --no-cache --repository http://dl-3.alpinelinux.org/alpine/edge/testing/ qperf==0.4.11-r0
+apt-get install -y iperf3 qperf
 
 # Start server in one of the pods
 iperf3 -s
 qperf
+sockperf sr --tcp -p 5201
+ntttcp -r -H
 
 # Execute different tests
-ip=10.2.0.82
-iperf3 -c $ip
+ip=10.1.0.54
+iperf3 -c $ip -b 0 -O 2
 qperf $ip -vvs -t 10 tcp_bw tcp_lat
+sockperf ping-pong -i $ip --tcp -t 10 -p 5201
+ntttcp -s $ip -W 2 -t 10 -l 1
+
+# Full roundtrip time
+sockperf ping-pong -i $ip --tcp -m 350 -t 101 -p 5201 --full-rtt
+# Larger packet size
+sockperf throughput -i $ip --tcp -m 1472 -t 10 -p 5201
 
 # Exit container shell
 exit
