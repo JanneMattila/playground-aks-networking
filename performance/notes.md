@@ -4,6 +4,12 @@ Perf testing is always tricky. Here are some
 numbers with *very* **very** limited testing.
 Your mileage *will* vary.
 
+## Summary
+
+| Scenario | tcp_bw | tcp_lat |
+|---|---|---|
+| Local laptop | 8.03 GB/sec | 33.9 us|
+
 ## Local laptop
 
 Testing under Surface Book 3 and using WSL.
@@ -29,6 +35,28 @@ Connecting to host 127.0.0.1, port 5201
 [  5]   0.00-10.00  sec  70.6 GBytes  60.7 Gbits/sec                  receiver
 
 iperf Done.
+```
+
+```
+# qperf 127.0.0.1 -vvs -t 10 tcp_bw tcp_lat
+tcp_bw:
+    bw          =  8.03 GB/sec
+    msg_rate    =   123 K/sec
+    send_bytes  =  80.3 GB
+    send_msgs   =  1.23 million
+    recv_bytes  =  80.3 GB
+    recv_msgs   =  1.23 million
+tcp_lat:
+    latency         =     33.9 us
+    msg_rate        =     29.5 K/sec
+    loc_send_bytes  =      148 KB
+    loc_recv_bytes  =      148 KB
+    loc_send_msgs   =  147,698
+    loc_recv_msgs   =  147,697
+    rem_send_bytes  =      148 KB
+    rem_recv_bytes  =      148 KB
+    rem_send_msgs   =  147,698
+    rem_recv_msgs   =  147,698
 ```
 
 ## Docker Desktop
@@ -60,8 +88,98 @@ iperf Done.
 
 ## Kubenet
 
+Inside single node:
+
 ```
-# To be added
+/app # iperf3 -c $ip
+Connecting to host 10.244.0.7, port 5201
+[  5] local 10.244.1.7 port 33494 connected to 10.244.0.7 port 5201
+[ ID] Interval           Transfer     Bitrate         Retr  Cwnd
+[  5]   0.00-1.00   sec  1.37 GBytes  11.8 Gbits/sec  2925   1.13 MBytes       
+[  5]   1.00-2.00   sec  1.37 GBytes  11.8 Gbits/sec  1061   1.15 MBytes       
+[  5]   2.00-3.00   sec  1.36 GBytes  11.7 Gbits/sec  493    807 KBytes       
+[  5]   3.00-4.00   sec  1.34 GBytes  11.5 Gbits/sec  309    707 KBytes       
+[  5]   4.00-5.00   sec  1.35 GBytes  11.6 Gbits/sec  912    984 KBytes       
+[  5]   5.00-6.00   sec  1.36 GBytes  11.7 Gbits/sec  1594   1.02 MBytes       
+[  5]   6.00-7.00   sec  1.35 GBytes  11.6 Gbits/sec  1020    618 KBytes       
+[  5]   7.00-8.00   sec  1.36 GBytes  11.7 Gbits/sec  510    891 KBytes       
+[  5]   8.00-9.00   sec  1.35 GBytes  11.6 Gbits/sec  310   1.14 MBytes       
+[  5]   9.00-10.00  sec  1.38 GBytes  11.9 Gbits/sec  719    755 KBytes       
+- - - - - - - - - - - - - - - - - - - - - - - - -
+[ ID] Interval           Transfer     Bitrate         Retr
+[  5]   0.00-10.00  sec  13.6 GBytes  11.7 Gbits/sec  9853             sender
+[  5]   0.00-10.00  sec  13.6 GBytes  11.7 Gbits/sec                  receiver
+
+iperf Done.
+```
+
+```
+/app # qperf $ip -vvs -t 10 tcp_bw tcp_lat
+tcp_bw:
+    bw          =     1.44 GB/sec
+    msg_rate    =       22 K/sec
+    send_bytes  =     14.4 GB
+    send_msgs   =  220,240 
+    recv_bytes  =     14.4 GB
+    recv_msgs   =  220,192 
+tcp_lat:
+    latency         =     47.4 us
+    msg_rate        =     21.1 K/sec
+    loc_send_bytes  =      106 KB
+    loc_recv_bytes  =      106 KB
+    loc_send_msgs   =  105,565 
+    loc_recv_msgs   =  105,564 
+    rem_send_bytes  =      106 KB
+    rem_recv_bytes  =      106 KB
+    rem_send_msgs   =  105,564 
+    rem_recv_msgs   =  105,565 
+```
+
+Two nodes (inside same Availability zone):
+
+```
+/app # iperf3 -c $ip
+Connecting to host 10.244.0.7, port 5201
+[  5] local 10.244.1.7 port 59032 connected to 10.244.0.7 port 5201
+[ ID] Interval           Transfer     Bitrate         Retr  Cwnd
+[  5]   0.00-1.00   sec  1.38 GBytes  11.8 Gbits/sec  4816    868 KBytes       
+[  5]   1.00-2.00   sec  1.37 GBytes  11.8 Gbits/sec  366   1.02 MBytes       
+[  5]   2.00-3.00   sec  1.36 GBytes  11.7 Gbits/sec  618   1.04 MBytes       
+[  5]   3.00-4.00   sec  1.36 GBytes  11.7 Gbits/sec  387   1.12 MBytes       
+[  5]   4.00-5.00   sec  1.37 GBytes  11.8 Gbits/sec  1009    522 KBytes       
+[  5]   5.00-6.00   sec  1.35 GBytes  11.6 Gbits/sec  862   1.06 MBytes       
+[  5]   6.00-7.00   sec  1.36 GBytes  11.7 Gbits/sec  827    824 KBytes       
+[  5]   7.00-8.00   sec  1.38 GBytes  11.9 Gbits/sec  506   1.10 MBytes       
+[  5]   8.00-9.00   sec  1.34 GBytes  11.5 Gbits/sec  449   1.12 MBytes       
+[  5]   9.00-10.00  sec  1.38 GBytes  11.8 Gbits/sec  1043   1.02 MBytes       
+- - - - - - - - - - - - - - - - - - - - - - - - -
+[ ID] Interval           Transfer     Bitrate         Retr
+[  5]   0.00-10.00  sec  13.6 GBytes  11.7 Gbits/sec  10883             sender
+[  5]   0.00-10.00  sec  13.6 GBytes  11.7 Gbits/sec                  receiver
+
+iperf Done.
+```
+
+```
+/app # qperf $ip -vvs -t 10 tcp_bw tcp_lat
+tcp_bw:
+    bw          =     1.46 GB/sec
+    msg_rate    =     22.2 K/sec
+    send_bytes  =     14.6 GB
+    send_msgs   =  222,576 
+    recv_bytes  =     14.6 GB
+    recv_msgs   =  222,485 
+tcp_lat:
+    latency         =     49.7 us
+    msg_rate        =     20.1 K/sec
+    loc_send_bytes  =      101 KB
+    loc_recv_bytes  =      101 KB
+    loc_send_msgs   =  100,555 
+    loc_recv_msgs   =  100,554 
+    rem_send_bytes  =      101 KB
+    rem_recv_bytes  =      101 KB
+    rem_send_msgs   =  100,554 
+    rem_recv_msgs   =  100,554 
 ```
 
 ## Azure CNI

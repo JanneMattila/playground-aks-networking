@@ -76,6 +76,11 @@ echo $myip
 #  --enable-private-cluster
 #  --private-dns-zone None
 
+# Virtual Machine SKUs:
+# https://docs.microsoft.com/en-us/azure/virtual-machines/ddv4-ddsv4-series#ddsv4-series
+# Standard_D8ds_v4
+# => Expected network bandwidth (Mbps): 4000
+
 az aks create -g $resourceGroupName -n $aksName \
  --zones 1 \
  --max-pods 50 --network-plugin azure \
@@ -170,23 +175,29 @@ kubectl get $pod2 -n demos -o custom-columns=NAME:'{.metadata.name}',NODE:'{.spe
 kubectl exec --stdin --tty $pod2 -n demos -- /bin/sh
 
 # Connect to "n" pod
-pod3=$(kubectl get pod -n demos -o name | tail -n +4 | head -n 1)
+pod3=$(kubectl get pod -n demos -o name | tail -n +3 | head -n 1)
 echo $pod3
 kubectl get $pod3 -n demos -o custom-columns=NAME:'{.metadata.name}',NODE:'{.spec.nodeName}'
 kubectl exec --stdin --tty $pod3 -n demos -- /bin/sh
 
-##############
-# iperf3 examples
-##############
+#################
+# Test scenarios
+#################
+
+hostname
 
 # If not installed, then install
 apk add --no-cache iperf3
+apk add --no-cache --repository http://dl-3.alpinelinux.org/alpine/edge/testing/ qperf==0.4.11-r0
 
 # Start server in one of the pods
 iperf3 -s
+qperf
 
-# Run test
-iperf3 -c 10.2.0.20
+# Execute different tests
+ip=10.244.0.7
+iperf3 -c $ip
+qperf $ip -vvs -t 10 tcp_bw tcp_lat
 
 # Exit container shell
 exit
