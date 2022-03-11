@@ -159,7 +159,7 @@ echo $pod1_ip
 pod2_ip=$(kubectl get pod -n demos -o jsonpath="{.items[1].status.podIP}")
 echo $pod2_ip
 
-pod3_ip=$(kubectl get pod -n demos -o jsonpath="{.items[3].status.podIP}")
+pod3_ip=$(kubectl get pod -n demos -o jsonpath="{.items[2].status.podIP}")
 echo $pod3_ip
 
 # Connect to first pod
@@ -195,7 +195,7 @@ iperf3 -s
 qperf
 
 # Execute different tests
-ip=10.244.0.7
+ip=10.2.0.82
 iperf3 -c $ip
 qperf $ip -vvs -t 10 tcp_bw tcp_lat
 
