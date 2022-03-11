@@ -165,6 +165,7 @@ kubectl get nodes -o wide
 kubectl get nodes -o custom-columns=NAME:.metadata.name,TAINTS:.spec.taints
 kubectl get nodes --show-labels=true
 kubectl get nodes -L agentpool,usage
+kubectl get nodes -o=custom-columns="NAME:.metadata.name,ADDRESSES:.status.addresses[?(@.type=='InternalIP')].address,PODCIDRS:.spec.podCIDRs[*]"
 
 ############################################
 #  _   _      _                      _
