@@ -33,7 +33,6 @@ az provider register --namespace Microsoft.ContainerService
 
 # Remove extension in case conflicting previews
 # az extension remove --name aks-preview
-subscriptionID=$(az account show -o tsv --query id)
 resourcegroupid=$(az group create -l $location -n $resourceGroupName -o table --query id -o tsv)
 echo $resourcegroupid
 
@@ -78,11 +77,12 @@ echo $myip
 #  --private-dns-zone None
 
 az aks create -g $resourceGroupName -n $aksName \
+ --zones 1 \
  --max-pods 50 --network-plugin azure \
- --node-count 1 --enable-cluster-autoscaler --min-count 1 --max-count 2 \
+ --node-count 2 --enable-cluster-autoscaler --min-count 2 --max-count 3 \
  --node-osdisk-type "Ephemeral" \
  --node-vm-size "Standard_D8ds_v4" \
- --kubernetes-version 1.22.4 \
+ --kubernetes-version 1.22.6 \
  --enable-addons monitoring \
  --enable-aad \
  --enable-managed-identity \
@@ -113,10 +113,12 @@ sudo az aks install-cli
 
 az aks get-credentials -n $aksName -g $resourceGroupName --overwrite-existing
 
+kubectl get nodes
 kubectl get nodes -o wide
 kubectl get nodes -o custom-columns=NAME:.metadata.name,TAINTS:.spec.taints
 kubectl get nodes --show-labels=true
 kubectl get nodes -L agentpool,usage
+kubectl get nodes -o custom-columns=NAME:'{.metadata.name}',REGION:'{.metadata.labels.topology\.kubernetes\.io/region}',ZONE:'{metadata.labels.topology\.kubernetes\.io/zone}'
 kubectl get nodes -o=custom-columns="NAME:.metadata.name,ADDRESSES:.status.addresses[?(@.type=='InternalIP')].address,PODCIDRS:.spec.podCIDRs[*]"
 
 ############################################
@@ -136,11 +138,58 @@ kubectl apply -f demos/service.yaml
 kubectl get deployment -n demos
 kubectl describe deployment -n demos
 
+kubectl get pod -n demos
+kubectl get pod -n demos -o custom-columns=NAME:'{.metadata.name}',NODE:'{.spec.nodeName}'
+
 kubectl get service -n demos
 svc_ip=$(kubectl get service -n demos -o jsonpath="{.items[0].status.loadBalancer.ingress[0].ip}")
 echo $svc_ip
 
 curl $svc_ip
+# <html><body>Hello there!</body></html>
+
+pod1_ip=$(kubectl get pod -n demos -o jsonpath="{.items[0].status.podIP}")
+echo $pod1_ip
+
+pod2_ip=$(kubectl get pod -n demos -o jsonpath="{.items[1].status.podIP}")
+echo $pod2_ip
+
+pod3_ip=$(kubectl get pod -n demos -o jsonpath="{.items[3].status.podIP}")
+echo $pod3_ip
+
+# Connect to first pod
+pod1=$(kubectl get pod -n demos -o name | head -n 1)
+echo $pod1
+kubectl get $pod1 -n demos -o custom-columns=NAME:'{.metadata.name}',NODE:'{.spec.nodeName}'
+kubectl exec --stdin --tty $pod1 -n demos -- /bin/sh
+
+# Connect to second pod
+pod2=$(kubectl get pod -n demos -o name | tail -n +2 | head -n 1)
+echo $pod2
+kubectl get $pod2 -n demos -o custom-columns=NAME:'{.metadata.name}',NODE:'{.spec.nodeName}'
+kubectl exec --stdin --tty $pod2 -n demos -- /bin/sh
+
+# Connect to "n" pod
+pod3=$(kubectl get pod -n demos -o name | tail -n +4 | head -n 1)
+echo $pod3
+kubectl get $pod3 -n demos -o custom-columns=NAME:'{.metadata.name}',NODE:'{.spec.nodeName}'
+kubectl exec --stdin --tty $pod3 -n demos -- /bin/sh
+
+##############
+# iperf3 examples
+##############
+
+# If not installed, then install
+apk add --no-cache iperf3
+
+# Start server in one of the pods
+iperf3 -s
+
+# Run test
+iperf3 -c 10.2.0.20
+
+# Exit container shell
+exit
 
 # Wipe out the resources
 az group delete --name $resourceGroupName -y
