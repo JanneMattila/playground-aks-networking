@@ -12,6 +12,8 @@ Your mileage *will* vary.
 | ------------------------------------------------------ | ----------- | ------- |
 | Local laptop                                           | 8.03 GB/sec | 33.9 us |
 | Docker Desktop                                         | 6.37 GB/sec | 38 us   |
+| Standard_D8ds_v4: VM to VM (single node)               | 3.52 GB/sec | 14.4 us |
+| Standard_D8ds_v4: VM to VM (two nodes inside same AZ)  | 1.49 GB/sec | 28.3 us |
 | Standard_D8ds_v4: Kubenet (single node)                | 1.44 GB/sec | 47.4 us |
 | Standard_D8ds_v4: Kubenet (two nodes inside same AZ)   | 1.46 GB/sec | 49.7 us |
 | Standard_D8ds_v4: Kubenet (different AZs)              | TBA         | TBA     |
@@ -115,6 +117,103 @@ tcp_lat:
     rem_recv_bytes  =      132 KB
     rem_send_msgs   =  131,722 
     rem_recv_msgs   =  131,722 
+```
+
+
+## Virtual Machine
+
+Inside single virtual machine:
+
+```
+# iperf3 -c localhost
+Connecting to host localhost, port 5201
+[  5] local 127.0.0.1 port 35080 connected to 127.0.0.1 port 5201
+[ ID] Interval           Transfer     Bitrate         Retr  Cwnd
+[  5]   0.00-1.00   sec  3.53 GBytes  30.3 Gbits/sec    0   1023 KBytes
+[  5]   1.00-2.00   sec  3.51 GBytes  30.1 Gbits/sec    0   1023 KBytes
+[  5]   2.00-3.00   sec  3.49 GBytes  30.0 Gbits/sec    0   1023 KBytes
+[  5]   3.00-4.00   sec  3.50 GBytes  30.1 Gbits/sec    0   1023 KBytes
+[  5]   4.00-5.00   sec  3.52 GBytes  30.3 Gbits/sec    0   1023 KBytes
+[  5]   5.00-6.00   sec  3.51 GBytes  30.1 Gbits/sec    0   1023 KBytes
+[  5]   6.00-7.00   sec  3.50 GBytes  30.1 Gbits/sec    0   1023 KBytes
+[  5]   7.00-8.00   sec  3.48 GBytes  29.9 Gbits/sec    0   1023 KBytes
+[  5]   8.00-9.00   sec  3.42 GBytes  29.3 Gbits/sec    0   1023 KBytes
+[  5]   9.00-10.00  sec  3.54 GBytes  30.4 Gbits/sec    0   1023 KBytes
+- - - - - - - - - - - - - - - - - - - - - - - - -
+[ ID] Interval           Transfer     Bitrate         Retr
+[  5]   0.00-10.00  sec  35.0 GBytes  30.1 Gbits/sec    0             sender
+[  5]   0.00-10.00  sec  35.0 GBytes  30.1 Gbits/sec                  receiver
+
+iperf Done.
+```
+
+```
+# qperf localhost -vvs -t 10 tcp_bw tcp_lat
+tcp_bw:
+    bw          =     3.52 GB/sec
+    msg_rate    =     53.6 K/sec
+    send_bytes  =     35.2 GB
+    send_msgs   =  536,407
+    recv_bytes  =     35.2 GB
+    recv_msgs   =  536,407
+tcp_lat:
+    latency         =     14.4 us
+    msg_rate        =     69.5 K/sec
+    loc_send_bytes  =      347 KB
+    loc_recv_bytes  =      347 KB
+    loc_send_msgs   =  347,431
+    loc_recv_msgs   =  347,430
+    rem_send_bytes  =      347 KB
+    rem_recv_bytes  =      347 KB
+    rem_send_msgs   =  347,431
+    rem_recv_msgs   =  347,431
+```
+
+Two virtual machines (inside same Availability zone):
+
+```
+# iperf3 -c 172.20.0.4
+Connecting to host 172.20.0.4, port 5201
+[  5] local 172.20.0.5 port 43914 connected to 172.20.0.4 port 5201
+[ ID] Interval           Transfer     Bitrate         Retr  Cwnd
+[  5]   0.00-1.00   sec  1.40 GBytes  12.0 Gbits/sec    0   2.65 MBytes
+[  5]   1.00-2.00   sec  1.38 GBytes  11.9 Gbits/sec    0   2.65 MBytes
+[  5]   2.00-3.00   sec  1.39 GBytes  11.9 Gbits/sec    0   2.81 MBytes
+[  5]   3.00-4.00   sec  1.38 GBytes  11.9 Gbits/sec    0   2.81 MBytes
+[  5]   4.00-5.00   sec  1.38 GBytes  11.9 Gbits/sec    0   2.81 MBytes
+[  5]   5.00-6.00   sec  1.39 GBytes  11.9 Gbits/sec    0   3.10 MBytes
+[  5]   6.00-7.00   sec  1.38 GBytes  11.9 Gbits/sec    0   3.10 MBytes
+[  5]   7.00-8.00   sec  1.39 GBytes  11.9 Gbits/sec    0   3.10 MBytes
+[  5]   8.00-9.00   sec  1.38 GBytes  11.9 Gbits/sec    0   3.10 MBytes
+[  5]   9.00-10.00  sec  1.38 GBytes  11.9 Gbits/sec    0   3.10 MBytes
+- - - - - - - - - - - - - - - - - - - - - - - - -
+[ ID] Interval           Transfer     Bitrate         Retr
+[  5]   0.00-10.00  sec  13.9 GBytes  11.9 Gbits/sec    0             sender
+[  5]   0.00-10.00  sec  13.9 GBytes  11.9 Gbits/sec                  receiver
+
+iperf Done.
+```
+
+```
+# qperf 172.20.0.4 -vvs -t 10 tcp_bw tcp_lat
+tcp_bw:
+    bw          =     1.49 GB/sec
+    msg_rate    =     22.7 K/sec
+    send_bytes  =     14.9 GB
+    send_msgs   =  227,052
+    recv_bytes  =     14.9 GB
+    recv_msgs   =  226,996
+tcp_lat:
+    latency         =     28.3 us
+    msg_rate        =     35.3 K/sec
+    loc_send_bytes  =      177 KB
+    loc_recv_bytes  =      177 KB
+    loc_send_msgs   =  176,566
+    loc_recv_msgs   =  176,565
+    rem_send_bytes  =      177 KB
+    rem_recv_bytes  =      177 KB
+    rem_send_msgs   =  176,566
+    rem_recv_msgs   =  176,566
 ```
 
 ## Kubenet
