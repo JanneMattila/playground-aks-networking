@@ -4,7 +4,7 @@ metadata:
   name: webapp-network-tester
   namespace: demos
 spec:
-  replicas: 3
+  replicas: 4
   selector:
     matchLabels:
       app: webapp-network-tester

@@ -89,9 +89,9 @@ echo $myip
 # --ppg $proximityplacementgroupid \
 
 az aks create -g $resourceGroupName -n $aksName \
- --zones 1 \
- --max-pods 50 --network-plugin azure \
- --node-count 2 --enable-cluster-autoscaler --min-count 2 --max-count 3 \
+ --zones 1 2 \
+ --max-pods 50 --network-plugin kubenet \
+ --node-count 3 --enable-cluster-autoscaler --min-count 3 --max-count 4 \
  --node-osdisk-type "Ephemeral" \
  --node-vm-size "Standard_D8ds_v4" \
  --kubernetes-version 1.22.6 \
@@ -168,6 +168,9 @@ echo $pod2_ip
 pod3_ip=$(kubectl get pod -n demos -o jsonpath="{.items[2].status.podIP}")
 echo $pod3_ip
 
+pod4_ip=$(kubectl get pod -n demos -o jsonpath="{.items[3].status.podIP}")
+echo $pod4_ip
+
 # Connect to first pod
 pod1=$(kubectl get pod -n demos -o name | head -n 1)
 echo $pod1
@@ -180,11 +183,17 @@ echo $pod2
 kubectl get $pod2 -n demos -o custom-columns=NAME:'{.metadata.name}',NODE:'{.spec.nodeName}'
 kubectl exec --stdin --tty $pod2 -n demos -- /bin/sh
 
-# Connect to "n" pod
+# Connect to third pod
 pod3=$(kubectl get pod -n demos -o name | tail -n +3 | head -n 1)
 echo $pod3
 kubectl get $pod3 -n demos -o custom-columns=NAME:'{.metadata.name}',NODE:'{.spec.nodeName}'
 kubectl exec --stdin --tty $pod3 -n demos -- /bin/sh
+
+# Connect to fourth pod
+pod4=$(kubectl get pod -n demos -o name | tail -n +4 | head -n 1)
+echo $pod4
+kubectl get $pod4 -n demos -o custom-columns=NAME:'{.metadata.name}',NODE:'{.spec.nodeName}'
+kubectl exec --stdin --tty $pod4 -n demos -- /bin/sh
 
 #################
 # Test scenarios
@@ -199,16 +208,16 @@ apt-get install -y iperf3 qperf
 
 # Start server in one of the pods
 iperf3 -s
+ntttcp -r -H
 qperf
 sockperf sr --tcp -p 5201
-ntttcp -r -H
 
 # Execute different tests
-ip=10.1.0.54
+ip=10.2.0.33
 iperf3 -c $ip -b 0 -O 2
+ntttcp -s $ip -W 2 -t 10 -l 1
 qperf $ip -vvs -t 10 tcp_bw tcp_lat
 sockperf ping-pong -i $ip --tcp -t 10 -p 5201
-ntttcp -s $ip -W 2 -t 10 -l 1
 
 # Full roundtrip time
 sockperf ping-pong -i $ip --tcp -m 350 -t 101 -p 5201 --full-rtt
