@@ -213,7 +213,7 @@ qperf
 sockperf sr --tcp -p 5201
 
 # Execute different tests
-ip=10.2.0.33
+ip=10.244.0.5
 iperf3 -c $ip -b 0 -O 2
 ntttcp -s $ip -W 2 -t 10 -l 1
 qperf $ip -vvs -t 10 tcp_bw tcp_lat
