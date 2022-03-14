@@ -26,6 +26,8 @@ Your mileage *will* vary.
 Tested with [Standard_D8ds_v4](https://docs.microsoft.com/en-us/azure/virtual-machines/ddv4-ddsv4-series#ddsv4-series)
 which has expected network bandwidth `4000 Mbps` => `4 Gbps`.
 
+Tested region is `West Europe`.
+
 PPG: Proximity Placement Group
 
 ## Local laptop
