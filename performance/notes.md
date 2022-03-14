@@ -21,7 +21,7 @@ Your mileage *will* vary.
 | Standard_D8ds_v4: Azure CNI (single node)                | 25.5          | 99.98         | 17.3       | 16.846        |
 | Standard_D8ds_v4: Azure CNI (two nodes inside same AZ)   | 11.8          | 11.82         | 61.3       | 60.394        |
 | Standard_D8ds_v4: Azure CNI (two nodes in different AZs) | 11.7          | 11.84         | 67.1       | 66.953        |
-| Standard_D8ds_v4: Azure CNI (two nodes using PPG)        |               |               |            |               |
+| Standard_D8ds_v4: Azure CNI (two nodes using PPG)        | 11.8          | 11.84         | 43.4       | 46.025        |
 
 Tested with [Standard_D8ds_v4](https://docs.microsoft.com/en-us/azure/virtual-machines/ddv4-ddsv4-series#ddsv4-series)
 which has expected network bandwidth `4000 Mbps` => `4 Gbps`.
@@ -991,4 +991,112 @@ sockperf: ---> percentile 75.000 =   74.808
 sockperf: ---> percentile 50.000 =   57.044
 sockperf: ---> percentile 25.000 =   55.201
 sockperf: ---> <MIN> observation =   46.638
+```
+
+Two nodes using PPG:
+
+```
+# iperf3 -c $ip -b 0 -O 2
+Connecting to host 10.2.0.86, port 5201
+[  5] local 10.2.0.18 port 51308 connected to 10.2.0.86 port 5201
+[ ID] Interval           Transfer     Bitrate         Retr  Cwnd
+[  5]   0.00-1.00   sec  1.38 GBytes  11.8 Gbits/sec  4758   1.08 MBytes       (omitted)
+[  5]   1.00-2.00   sec  1.37 GBytes  11.8 Gbits/sec  1675    872 KBytes       (omitted)
+[  5]   0.00-1.00   sec  1.35 GBytes  11.6 Gbits/sec  897    401 KBytes       
+[  5]   1.00-2.00   sec  1.38 GBytes  11.9 Gbits/sec  906   1.13 MBytes       
+[  5]   2.00-3.00   sec  1.38 GBytes  11.9 Gbits/sec  980    865 KBytes       
+[  5]   3.00-4.00   sec  1.37 GBytes  11.7 Gbits/sec  2916    946 KBytes       
+[  5]   4.00-5.00   sec  1.38 GBytes  11.9 Gbits/sec  1268    824 KBytes       
+[  5]   5.00-6.00   sec  1.38 GBytes  11.9 Gbits/sec  2421    903 KBytes       
+[  5]   6.00-7.00   sec  1.38 GBytes  11.9 Gbits/sec  2025    596 KBytes       
+[  5]   7.00-8.00   sec  1.37 GBytes  11.8 Gbits/sec  1564    398 KBytes       
+[  5]   8.00-9.00   sec  1.37 GBytes  11.7 Gbits/sec  1526   1.04 MBytes       
+[  5]   9.00-10.00  sec  1.36 GBytes  11.7 Gbits/sec  4562    568 KBytes       
+- - - - - - - - - - - - - - - - - - - - - - - - -
+[ ID] Interval           Transfer     Bitrate         Retr
+[  5]   0.00-10.00  sec  13.7 GBytes  11.8 Gbits/sec  19065             sender
+[  5]   0.00-10.00  sec  13.7 GBytes  11.8 Gbits/sec                  receiver
+
+iperf Done.
+```
+
+```
+# ntttcp -s $ip -W 2 -t 10 -l 1
+NTTTCP for Linux 1.4.0
+---------------------------------------------------------
+13:04:03 INFO: Test cycle time negotiated is: 60 seconds
+13:04:03 INFO: 64 threads created
+13:04:03 INFO: 64 connections created in 36278 microseconds
+13:04:03 INFO: Network activity progressing...
+13:04:05 INFO: Test warmup completed.
+13:04:15 INFO: Test run completed.
+13:04:15 INFO: Test cooldown is in progress...
+13:05:03 INFO: Test cycle finished.
+13:05:03 INFO: receiver exited from current test
+13:05:03 INFO: 64 connections tested
+13:05:03 INFO: #####  Totals:  #####
+13:05:03 INFO: test duration    :10.34 seconds
+13:05:03 INFO: total bytes      :15307898880
+13:05:03 INFO:   throughput     :11.84Gbps
+13:05:03 INFO:   retrans segs   :86222
+13:05:03 INFO: cpu cores        :8
+13:05:03 INFO:   cpu speed      :2593.905MHz
+13:05:03 INFO:   user           :1.10%
+13:05:03 INFO:   system         :8.22%
+13:05:03 INFO:   idle           :83.03%
+13:05:03 INFO:   iowait         :0.00%
+13:05:03 INFO:   softirq        :7.64%
+13:05:03 INFO:   cycles/byte    :2.38
+13:05:03 INFO: cpu busy (all)   :64.49%
+```
+
+```
+# qperf $ip -vvs -t 10 tcp_bw tcp_lat
+tcp_bw:
+    bw          =     1.47 GB/sec
+    msg_rate    =     22.4 K/sec
+    send_bytes  =     14.7 GB
+    send_msgs   =  224,378 
+    recv_bytes  =     14.7 GB
+    recv_msgs   =  224,277 
+tcp_lat:
+    latency         =     43.4 us
+    msg_rate        =     23.1 K/sec
+    loc_send_bytes  =      115 KB
+    loc_recv_bytes  =      115 KB
+    loc_send_msgs   =  115,258 
+    loc_recv_msgs   =  115,257 
+    rem_send_bytes  =      115 KB
+    rem_recv_bytes  =      115 KB
+    rem_send_msgs   =  115,257 
+    rem_recv_msgs   =  115,257 
+```
+
+```
+# sockperf ping-pong -i $ip --tcp -t 10 -p 5201
+sockperf: == version #3.8-0.git31ee322aa82a == 
+sockperf[CLIENT] send on:sockperf: using recvfrom() to block on socket(s)
+
+[ 0] IP = 10.2.0.86       PORT =  5201 # TCP
+sockperf: Warmup stage (sending a few dummy messages)...
+sockperf: Starting test...
+sockperf: Test end (interrupted by timer)
+sockperf: Test ended
+sockperf: [Total Run] RunTime=10.000 sec; Warm up time=400 msec; SentMessages=107221; ReceivedMessages=107220
+sockperf: ========= Printing statistics for Server No: 0
+sockperf: [Valid Duration] RunTime=9.548 sec; SentMessages=103596; ReceivedMessages=103596
+sockperf: ====> avg-latency=46.025 (std-dev=57.690, mean-ad=8.267, median-ad=1.985, siqr=1.512, cv=1.253, std-error=0.179, 99.0% ci=[45.563, 46.487])
+sockperf: # dropped messages = 0; # duplicated messages = 0; # out-of-order messages = 0
+sockperf: Summary: Latency is 46.025 usec
+sockperf: Total 103596 observations; each percentile contains 1035.96 observations
+sockperf: ---> <MAX> observation = 4479.887
+sockperf: ---> percentile 99.999 = 4455.451
+sockperf: ---> percentile 99.990 = 2466.181
+sockperf: ---> percentile 99.900 =  686.002
+sockperf: ---> percentile 99.000 =  110.743
+sockperf: ---> percentile 90.000 =   47.321
+sockperf: ---> percentile 75.000 =   43.293
+sockperf: ---> percentile 50.000 =   41.367
+sockperf: ---> percentile 25.000 =   40.268
+sockperf: ---> <MIN> observation =   33.557
 ```
