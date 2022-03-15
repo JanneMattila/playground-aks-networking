@@ -90,8 +90,8 @@ echo $myip
 
 az aks create -g $resourceGroupName -n $aksName \
  --zones 1 2 \
- --max-pods 50 --network-plugin kubenet \
- --node-count 3 --enable-cluster-autoscaler --min-count 3 --max-count 4 \
+ --max-pods 50 --network-plugin azure \
+ --node-count 2 --enable-cluster-autoscaler --min-count 2 --max-count 2 \
  --node-osdisk-type "Ephemeral" \
  --node-vm-size "Standard_D8ds_v4" \
  --kubernetes-version 1.22.6 \
@@ -108,7 +108,7 @@ az aks create -g $resourceGroupName -n $aksName \
  --api-server-authorized-ip-ranges $myip \
  -o table
 
-# Create secondary node pool and use "secure-subnet" for pods in it
+# Create secondary node pool
 nodepool2="nodepool2"
 az aks nodepool add -g $resourceGroupName --cluster-name $aksName \
   --name $nodepool2 \
@@ -213,7 +213,7 @@ qperf
 sockperf sr --tcp -p 5201
 
 # Execute different tests
-ip=10.244.0.5
+ip=10.244.0.7
 iperf3 -c $ip -b 0 -O 2
 ntttcp -s $ip -W 2 -t 10 -l 1
 qperf $ip -vvs -t 10 tcp_bw tcp_lat
