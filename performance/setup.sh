@@ -91,9 +91,9 @@ echo $myip
 # --ppg $proximityplacementgroupid \
 
 az aks create -g $resourceGroupName -n $aksName \
- --zones 1 2 \
+ --zones 1 2 3 \
  --max-pods 50 --network-plugin azure \
- --node-count 2 --enable-cluster-autoscaler --min-count 2 --max-count 2 \
+ --node-count 4 --enable-cluster-autoscaler --min-count 4 --max-count 4 \
  --node-osdisk-type "Ephemeral" \
  --node-vm-size "Standard_D8ds_v4" \
  --kubernetes-version 1.22.6 \
@@ -162,15 +162,13 @@ curl $svc_ip
 # <html><body>Hello there!</body></html>
 
 pod1_ip=$(kubectl get pod -n demos -o jsonpath="{.items[0].status.podIP}")
-echo $pod1_ip
-
 pod2_ip=$(kubectl get pod -n demos -o jsonpath="{.items[1].status.podIP}")
-echo $pod2_ip
-
 pod3_ip=$(kubectl get pod -n demos -o jsonpath="{.items[2].status.podIP}")
-echo $pod3_ip
-
 pod4_ip=$(kubectl get pod -n demos -o jsonpath="{.items[3].status.podIP}")
+
+echo $pod1_ip
+echo $pod2_ip
+echo $pod3_ip
 echo $pod4_ip
 
 # Connect to first pod
@@ -215,8 +213,10 @@ qperf
 sockperf sr --tcp -p 5201
 
 # Execute different tests
-ip=10.2.0.20
+ip=10.2.0.58
 iperf3 -c $ip -b 0 -O 2
+# iperf3 -c $ip -b 0 -O 2 -N
+# iperf3 -c $ip -b 0 -O 2 -N -P 2
 ntttcp -s $ip -W 2 -t 10 -l 1
 qperf $ip -vvs -t 10 tcp_bw tcp_lat
 sockperf ping-pong -i $ip --tcp -t 10 -p 5201
